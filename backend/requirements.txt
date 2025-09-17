@@ -1,0 +1,14 @@
+# requirements.txt - Backend with Authentication
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+pydantic[email]==2.5.0
+sqlalchemy==2.0.23
+python-multipart==0.0.6
+
+# Authentication dependencies
+passlib[bcrypt]==1.7.4
+python-jose[cryptography]==3.3.0
+python-multipart==0.0.6
+
+# Optional but recommended
+alembic==1.12.1
