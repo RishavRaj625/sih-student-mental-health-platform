@@ -1,4 +1,4 @@
-// context/AuthContext.jsx - FIXED VERSION
+// context/AuthContext.jsx - FIXED VERSION with better error handling
 import React, { createContext, useContext, useState, useEffect } from 'react';
 
 const AuthContext = createContext();
@@ -6,7 +6,10 @@ const AuthContext = createContext();
 // API base URL - use environment variable with fallback
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
-console.log('API_BASE_URL:', API_BASE_URL); // Debug log
+// Remove trailing slash if present
+const cleanApiUrl = API_BASE_URL.replace(/\/$/, '');
+
+console.log('API_BASE_URL:', cleanApiUrl); // Debug log
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
@@ -26,7 +29,7 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const initializeAuth = async () => {
       try {
-        // Use in-memory storage instead of localStorage for Claude artifacts
+        // Use sessionStorage instead of localStorage for Claude artifacts
         const savedToken = sessionStorage.getItem('token') || null;
         const savedUser = sessionStorage.getItem('user') || null;
         const savedAdmin = sessionStorage.getItem('admin') || null;
@@ -43,8 +46,11 @@ export const AuthProvider = ({ children }) => {
               setUser(userData);
               
               // Verify user token is still valid
-              const response = await fetch(`${API_BASE_URL}/me`, {
-                headers: { 'Authorization': `Bearer ${savedToken}` }
+              const response = await fetch(`${cleanApiUrl}/me`, {
+                headers: { 
+                  'Authorization': `Bearer ${savedToken}`,
+                  'Content-Type': 'application/json'
+                }
               });
               
               if (!response.ok) {
@@ -60,8 +66,11 @@ export const AuthProvider = ({ children }) => {
               setAdmin(adminData);
               
               // Verify admin token is still valid
-              const response = await fetch(`${API_BASE_URL}/admin/me`, {
-                headers: { 'Authorization': `Bearer ${savedToken}` }
+              const response = await fetch(`${cleanApiUrl}/admin/me`, {
+                headers: { 
+                  'Authorization': `Bearer ${savedToken}`,
+                  'Content-Type': 'application/json'
+                }
               });
               
               if (!response.ok) {
@@ -97,9 +106,9 @@ export const AuthProvider = ({ children }) => {
     initializeAuth();
   }, []);
 
-  // Helper function to make API requests with token
+  // Helper function to make API requests with better error handling
   const apiRequest = async (endpoint, options = {}) => {
-    const url = `${API_BASE_URL}${endpoint}`;
+    const url = `${cleanApiUrl}${endpoint}`;
     const config = {
       headers: {
         'Content-Type': 'application/json',
@@ -142,35 +151,50 @@ export const AuthProvider = ({ children }) => {
     } catch (error) {
       console.error(`API request failed for ${endpoint}:`, error);
       
-      // Handle network errors specifically
-      if (error.name === 'TypeError' && error.message.includes('fetch')) {
-        throw new Error(`Network error: Unable to connect to server at ${API_BASE_URL}. Please check if the backend is running.`);
+      // Handle specific error types
+      if (error instanceof TypeError) {
+        // Network error
+        throw new Error(`Network error: Unable to connect to server at ${cleanApiUrl}. Please check if the backend is running and accessible.`);
+      } else if (error.name === 'AbortError') {
+        throw new Error('Request was aborted');
+      } else if (error.message.includes('CORS')) {
+        throw new Error('CORS error: Server not allowing requests from this origin');
       }
       
       throw error;
     }
   };
 
-  // Login function for regular users
+  // Enhanced login function with better error handling
   const login = async (email, password) => {
     try {
       console.log('Attempting user login for:', email);
+      console.log('Using API URL:', `${cleanApiUrl}/login`);
       
-      const response = await fetch(`${API_BASE_URL}/login`, {
+      const response = await fetch(`${cleanApiUrl}/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Accept': 'application/json',
         },
         body: JSON.stringify({ email, password }),
       });
 
       console.log('Login response status:', response.status, response.statusText);
 
+      // Check if response is JSON
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        const text = await response.text();
+        console.error('Non-JSON response:', text);
+        throw new Error(`Server returned non-JSON response: ${response.status} ${response.statusText}`);
+      }
+
       const data = await response.json();
       
       if (!response.ok) {
         console.error('Login failed:', data);
-        throw new Error(data.detail || 'Login failed');
+        throw new Error(data.detail || `Login failed: ${response.status} ${response.statusText}`);
       }
 
       console.log('Login successful:', { user: data.user?.name, email: data.user?.email });
@@ -187,20 +211,27 @@ export const AuthProvider = ({ children }) => {
       return { success: true, user: data.user };
     } catch (error) {
       console.error('Login error:', error);
+      
+      // Provide more specific error messages
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        return { success: false, error: `Cannot connect to server at ${cleanApiUrl}. Please check your internet connection and ensure the backend is running.` };
+      }
+      
       return { success: false, error: error.message };
     }
   };
 
-  // Admin login function
+  // Enhanced admin login function
   const adminLogin = async (email, password) => {
     try {
       console.log('Attempting admin login for:', email);
-      console.log('API endpoint:', `${API_BASE_URL}/admin/login`);
+      console.log('API endpoint:', `${cleanApiUrl}/admin/login`);
       
-      const response = await fetch(`${API_BASE_URL}/admin/login`, {
+      const response = await fetch(`${cleanApiUrl}/admin/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Accept': 'application/json',
         },
         body: JSON.stringify({ email, password }),
       });
@@ -211,12 +242,20 @@ export const AuthProvider = ({ children }) => {
         ok: response.ok 
       });
 
+      // Check if response is JSON
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        const text = await response.text();
+        console.error('Non-JSON response:', text);
+        throw new Error(`Server returned non-JSON response: ${response.status} ${response.statusText}`);
+      }
+
       const data = await response.json();
       console.log('Admin login response data:', data);
 
       if (!response.ok) {
         console.error('Admin login failed:', data);
-        throw new Error(data.detail || 'Admin login failed');
+        throw new Error(data.detail || `Admin login failed: ${response.status} ${response.statusText}`);
       }
 
       console.log('Admin login successful:', { 
@@ -239,8 +278,8 @@ export const AuthProvider = ({ children }) => {
       console.error('Admin login error:', error);
       
       // Provide more specific error messages
-      if (error.message.includes('Network error')) {
-        return { success: false, error: `Cannot connect to server at ${API_BASE_URL}. Please ensure the backend is running.` };
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        return { success: false, error: `Cannot connect to server at ${cleanApiUrl}. Please check your internet connection and ensure the backend is running.` };
       }
       
       return { success: false, error: error.message };
@@ -251,19 +290,27 @@ export const AuthProvider = ({ children }) => {
   const signup = async (email, password, name) => {
     try {
       console.log('Attempting user signup...');
-      const response = await fetch(`${API_BASE_URL}/register`, {
+      const response = await fetch(`${cleanApiUrl}/register`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Accept': 'application/json',
         },
         body: JSON.stringify({ email, password, name }),
       });
+
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        const text = await response.text();
+        console.error('Non-JSON response:', text);
+        throw new Error(`Server returned non-JSON response: ${response.status} ${response.statusText}`);
+      }
 
       const data = await response.json();
       console.log('Signup response:', { success: response.ok, data: response.ok ? data : 'Error' });
 
       if (!response.ok) {
-        throw new Error(data.detail || 'Registration failed');
+        throw new Error(data.detail || `Registration failed: ${response.status} ${response.statusText}`);
       }
 
       // Store token and user data
@@ -278,6 +325,11 @@ export const AuthProvider = ({ children }) => {
       return { success: true };
     } catch (error) {
       console.error('Signup error:', error);
+      
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        return { success: false, error: `Cannot connect to server at ${cleanApiUrl}. Please check your internet connection and ensure the backend is running.` };
+      }
+      
       return { success: false, error: error.message };
     }
   };
@@ -333,17 +385,25 @@ export const AuthProvider = ({ children }) => {
   // Update profile
   const updateProfile = async (name) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/profile?name=${encodeURIComponent(name)}`, {
+      const response = await fetch(`${cleanApiUrl}/profile?name=${encodeURIComponent(name)}`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
         },
       });
+
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        const text = await response.text();
+        throw new Error(`Server returned non-JSON response: ${response.status} ${response.statusText}`);
+      }
 
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.detail || 'Profile update failed');
+        throw new Error(data.detail || `Profile update failed: ${response.status} ${response.statusText}`);
       }
 
       setUser(data);
@@ -470,7 +530,7 @@ export const AuthProvider = ({ children }) => {
     token: !!token,
     isAuthenticated: isAuthenticated(),
     isAdmin: isAdmin(),
-    apiBaseUrl: API_BASE_URL
+    apiBaseUrl: cleanApiUrl
   });
 
   return (
