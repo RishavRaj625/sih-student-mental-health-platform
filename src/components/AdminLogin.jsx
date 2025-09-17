@@ -57,39 +57,6 @@ const AdminLogin = () => {
     }
   };
 
-  // Quick login buttons for testing
-  const handleQuickLogin = async (preset) => {
-    setLoading(true);
-    setError('');
-    
-    const credentials = {
-      default: { email: 'admin@example.com', password: '#Admin@123' },
-      alt: { email: 'admin@yourdomain.com', password: 'SecureAdminPassword123!@#' }
-    };
-    
-    const { email: testEmail, password: testPassword } = credentials[preset];
-    setEmail(testEmail);
-    setPassword(testPassword);
-    
-    console.log(`Quick login attempt with ${preset} credentials:`, { email: testEmail });
-    
-    try {
-      const result = await adminLogin(testEmail, testPassword);
-      console.log('Quick login result:', result);
-      
-      if (result.success) {
-        console.log('Quick login successful, navigating...');
-        navigate('/admin-dashboard');
-      } else {
-        setError(result.error || 'Quick login failed');
-      }
-    } catch (error) {
-      console.error('Quick login error:', error);
-      setError('Quick login error: ' + error.message);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -192,5 +159,6 @@ const AdminLogin = () => {
     </div>
   );
 };
+
 
 export default AdminLogin;
