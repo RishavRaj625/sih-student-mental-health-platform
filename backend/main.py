@@ -250,23 +250,24 @@ app = FastAPI(
     description="Secure User Management API with JWT Authentication and Admin Panel"
 )
 
-# CORS Configuration - ADD THIS TO YOUR main.py
+# CORS Configuration - UPDATED
 allowed_origins = os.getenv(
     "ALLOWED_ORIGINS", 
     "http://localhost:3000,http://localhost:5173,http://localhost:8080,https://sih-student-mental-health-platform.vercel.app"
 ).split(",")
 
-# Clean up origins (remove trailing slashes)
-allowed_origins = [origin.rstrip('/') for origin in allowed_origins]
+# Clean up origins (remove trailing slashes and whitespace)
+allowed_origins = [origin.strip().rstrip('/') for origin in allowed_origins if origin.strip()]
 
 print(f"Allowed CORS origins: {allowed_origins}")  # Debug line
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=allowed_origins,
+    allow_origins=allowed_origins,  # Use the specific origins
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
+    expose_headers=["*"]
 )
 
 # Public Endpoints
@@ -698,3 +699,4 @@ if __name__ == "__main__":
     import uvicorn
 
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+
