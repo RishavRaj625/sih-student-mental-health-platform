@@ -1,14 +1,13 @@
 # requirements.txt - Backend with Authentication
-fastapi==0.104.1
-uvicorn[standard]==0.24.0
-pydantic[email]==2.5.0
-pydantic-core==2.14.1
-sqlalchemy==2.0.23
-python-multipart==0.0.6
+fastapi==0.115.0
+uvicorn[standard]==0.32.0
+pydantic[email]==2.10.3
+sqlalchemy==2.0.36
+python-multipart==0.0.12
 # Authentication dependencies
 passlib[bcrypt]==1.7.4
 python-jose[cryptography]==3.3.0
 # Database migrations
-alembic==1.12.1
+alembic==1.14.0
 # Additional dependencies for stability
-python-dotenv==1.0.0
+python-dotenv==1.0.1
