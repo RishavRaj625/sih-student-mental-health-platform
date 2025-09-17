@@ -3,8 +3,10 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 
 const AuthContext = createContext();
 
-// API base URL - adjust this to match your FastAPI server
-const API_BASE_URL = 'http://localhost:8000';
+// API base URL - use environment variable with fallback
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+
+console.log('API_BASE_URL:', API_BASE_URL); // Debug log
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
@@ -24,9 +26,10 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const initializeAuth = async () => {
       try {
-        const savedToken = localStorage.getItem('token');
-        const savedUser = localStorage.getItem('user');
-        const savedAdmin = localStorage.getItem('admin');
+        // Use in-memory storage instead of localStorage for Claude artifacts
+        const savedToken = sessionStorage.getItem('token') || null;
+        const savedUser = sessionStorage.getItem('user') || null;
+        const savedAdmin = sessionStorage.getItem('admin') || null;
         
         console.log('Initializing auth...', { savedToken: !!savedToken, savedUser: !!savedUser, savedAdmin: !!savedAdmin });
         
@@ -50,7 +53,7 @@ export const AuthProvider = ({ children }) => {
               
               const currentUser = await response.json();
               setUser(currentUser);
-              localStorage.setItem('user', JSON.stringify(currentUser));
+              sessionStorage.setItem('user', JSON.stringify(currentUser));
               
             } else if (savedAdmin) {
               const adminData = JSON.parse(savedAdmin);
@@ -67,14 +70,14 @@ export const AuthProvider = ({ children }) => {
               
               const currentAdmin = await response.json();
               setAdmin(currentAdmin);
-              localStorage.setItem('admin', JSON.stringify(currentAdmin));
+              sessionStorage.setItem('admin', JSON.stringify(currentAdmin));
             }
           } catch (error) {
             console.log('Token verification failed, clearing auth:', error.message);
             // Token is invalid, clear everything
-            localStorage.removeItem('token');
-            localStorage.removeItem('user');
-            localStorage.removeItem('admin');
+            sessionStorage.removeItem('token');
+            sessionStorage.removeItem('user');
+            sessionStorage.removeItem('admin');
             setToken(null);
             setUser(null);
             setAdmin(null);
@@ -83,9 +86,9 @@ export const AuthProvider = ({ children }) => {
       } catch (error) {
         console.error('Auth initialization error:', error);
         // Clear potentially corrupted data
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        localStorage.removeItem('admin');
+        sessionStorage.removeItem('token');
+        sessionStorage.removeItem('user');
+        sessionStorage.removeItem('admin');
       }
       
       setLoading(false);
@@ -141,7 +144,7 @@ export const AuthProvider = ({ children }) => {
       
       // Handle network errors specifically
       if (error.name === 'TypeError' && error.message.includes('fetch')) {
-        throw new Error('Network error: Unable to connect to server. Please check if the backend is running.');
+        throw new Error(`Network error: Unable to connect to server at ${API_BASE_URL}. Please check if the backend is running.`);
       }
       
       throw error;
@@ -177,9 +180,9 @@ export const AuthProvider = ({ children }) => {
       setUser(data.user);
       setAdmin(null); // Clear admin if exists
       
-      localStorage.setItem('token', data.access_token);
-      localStorage.setItem('user', JSON.stringify(data.user));
-      localStorage.removeItem('admin'); // Clear admin storage
+      sessionStorage.setItem('token', data.access_token);
+      sessionStorage.setItem('user', JSON.stringify(data.user));
+      sessionStorage.removeItem('admin'); // Clear admin storage
 
       return { success: true, user: data.user };
     } catch (error) {
@@ -227,9 +230,9 @@ export const AuthProvider = ({ children }) => {
       setAdmin(data.admin);
       setUser(null); // Clear user if exists
       
-      localStorage.setItem('token', data.access_token);
-      localStorage.setItem('admin', JSON.stringify(data.admin));
-      localStorage.removeItem('user'); // Clear user storage
+      sessionStorage.setItem('token', data.access_token);
+      sessionStorage.setItem('admin', JSON.stringify(data.admin));
+      sessionStorage.removeItem('user'); // Clear user storage
 
       return { success: true, admin: data.admin };
     } catch (error) {
@@ -237,7 +240,7 @@ export const AuthProvider = ({ children }) => {
       
       // Provide more specific error messages
       if (error.message.includes('Network error')) {
-        return { success: false, error: 'Cannot connect to server. Please ensure the backend is running on http://localhost:8000' };
+        return { success: false, error: `Cannot connect to server at ${API_BASE_URL}. Please ensure the backend is running.` };
       }
       
       return { success: false, error: error.message };
@@ -268,9 +271,9 @@ export const AuthProvider = ({ children }) => {
       setUser(data.user);
       setAdmin(null); // Clear admin if exists
       
-      localStorage.setItem('token', data.access_token);
-      localStorage.setItem('user', JSON.stringify(data.user));
-      localStorage.removeItem('admin'); // Clear admin storage
+      sessionStorage.setItem('token', data.access_token);
+      sessionStorage.setItem('user', JSON.stringify(data.user));
+      sessionStorage.removeItem('admin'); // Clear admin storage
 
       return { success: true };
     } catch (error) {
@@ -284,7 +287,7 @@ export const AuthProvider = ({ children }) => {
     try {
       const data = await apiRequest('/me');
       setUser(data);
-      localStorage.setItem('user', JSON.stringify(data));
+      sessionStorage.setItem('user', JSON.stringify(data));
       return { success: true, user: data };
     } catch (error) {
       console.error('Get current user error:', error);
@@ -297,7 +300,7 @@ export const AuthProvider = ({ children }) => {
     try {
       const data = await apiRequest('/admin/me');
       setAdmin(data);
-      localStorage.setItem('admin', JSON.stringify(data));
+      sessionStorage.setItem('admin', JSON.stringify(data));
       return { success: true, admin: data };
     } catch (error) {
       console.error('Get current admin error:', error);
@@ -344,7 +347,7 @@ export const AuthProvider = ({ children }) => {
       }
 
       setUser(data);
-      localStorage.setItem('user', JSON.stringify(data));
+      sessionStorage.setItem('user', JSON.stringify(data));
       return { success: true, user: data };
     } catch (error) {
       console.error('Update profile error:', error);
@@ -421,9 +424,9 @@ export const AuthProvider = ({ children }) => {
     setUser(null);
     setAdmin(null);
     setToken(null);
-    localStorage.removeItem('user');
-    localStorage.removeItem('admin');
-    localStorage.removeItem('token');
+    sessionStorage.removeItem('user');
+    sessionStorage.removeItem('admin');
+    sessionStorage.removeItem('token');
   };
 
   // Check if user is authenticated
@@ -466,7 +469,8 @@ export const AuthProvider = ({ children }) => {
     admin: !!admin, 
     token: !!token,
     isAuthenticated: isAuthenticated(),
-    isAdmin: isAdmin()
+    isAdmin: isAdmin(),
+    apiBaseUrl: API_BASE_URL
   });
 
   return (
