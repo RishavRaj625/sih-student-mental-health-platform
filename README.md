@@ -1,7 +1,7 @@
 # Digital Mental Health and Psychological Support System for Students in Higher Education:
 
 **Problem Statement ID:** 25092  
-**Problem Statement Title:** Development of a Digital Mental Health and Psychological Support System for Students in Higher Education
+**Problem Statement Title:** Development of a Digital Mental Health and Psychological Support System for Students in Higher Education.
 
 ## Project Overview
 
